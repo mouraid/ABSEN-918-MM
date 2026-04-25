@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ABSEN PERSONEL DIGITAL</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+font-family:'Poppins',sans-serif;
+margin:0;
+background:url("background.jpg") no-repeat center center fixed;
+background-size:cover;
+color:white;
+}
+
+body::before{
+content:"";
+position:fixed;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.55);
+z-index:-1;
+}
+
+.header{text-align:center;padding:20px;font-size:24px;font-weight:bold;}
+.jam{text-align:center;margin-bottom:10px;font-size:18px;}
+
+.container{
+background:rgba(255,255,255,0.95);
+color:black;
+max-width:1100px;
+margin:auto;
+border-radius:15px;
+padding:25px;
+box-shadow:0 10px 30px rgba(0,0,0,0.5);
+}
+
+input,select{
+width:100%;
+padding:12px;
+margin:8px 0;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:14px;
+border:none;
+border-radius:10px;
+background:#0b5e2a;
+color:white;
+font-size:16px;
+cursor:pointer;
+}
+
+.success{
+background:#2ecc71;
+padding:10px;
+border-radius:8px;
+display:none;
+margin-bottom:10px;
+text-align:center;
+color:white;
+}
+
+.rekap{
+display:flex;
+gap:10px;
+flex-wrap:wrap;
+margin-top:15px;
+}
+
+.box{
+flex:1;
+background:#0b5e2a;
+color:white;
+padding:12px;
+border-radius:10px;
+text-align:center;
+min-width:170px;
+}
+
+table{
+width:100%;
+margin-top:15px;
+border-collapse:collapse;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+text-align:center;
+}
+
+th{background:#0b5e2a;color:white;}
+
+.status-hadir{color:green;font-weight:bold;}
+.status-izin{color:orange;font-weight:bold;}
+.status-sakit{color:red;font-weight:bold;}
+.status-dl{color:blue;font-weight:bold;}
+.status-dd{color:purple;font-weight:bold;}
+
+.hapus{background:red;margin-top:10px;}
+.export{background:#1f6feb;margin-top:10px;}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">ABSEN PERSONEL DIGITAL</div>
+<div class="jam" id="jam"></div>
+
+<div class="container">
+
+<div id="notif" class="success">Absen berhasil ✅</div>
+
+<form id="form">
+
+<input id="nrp" placeholder="NRP" required>
+<input id="nama" placeholder="Nama Personel" required>
+
+<select id="kompi" required>
+<option value="">Pilih Kompi</option>
+<option>Kompi Markas</option>
+<option>Kompi Senapan A</option>
+<option>Kompi Senapan B</option>
+<option>Kompi Senapan C</option>
+<option>Kompi Bantuan</option>
+<option>Kompi Peternakan</option>
+<option>Kompi Pertanian</option>
+<option>Kompi Zeni</option>
+<option>Kompi Kesehatan</option>
+</select>
+
+<select id="status" required>
+<option value="">Status Kehadiran</option>
+<option>Hadir</option>
+<option>Izin</option>
+<option>Sakit</option>
+<option>Dinas Luar</option>
+<option>Dinas Dalam</option>
+</select>
+
+<button type="submit">ABSEN SEKARANG</button>
+
+</form>
+
+<input id="cari" placeholder="🔎 Cari Personel..." onkeyup="tampil()">
+
+<div class="rekap" id="rekap"></div>
+
+<table>
+<thead>
+<tr>
+<th>NRP</th>
+<th>Nama</th>
+<th>Kompi</th>
+<th>Status</th>
+<th>Jam</th>
+</tr>
+</thead>
+<tbody id="tabel"></tbody>
+</table>
+
+<button class="export" onclick="exportCSV()">EXPORT REKAP (PASSWORD)</button>
+<button class="hapus" onclick="hapus()">HAPUS DATA (KOMANDAN)</button>
+
+</div>
+
+<script>
+
+/* ================= KOMPI ================= */
+
+const totalKompi={
+"Kompi Markas":79,
+"Kompi Senapan A":93,
+"Kompi Senapan B":90,
+"Kompi Senapan C":85,
+"Kompi Bantuan":47,
+"Kompi Peternakan":38,
+"Kompi Pertanian":41,
+"Kompi Zeni":16,
+"Kompi Kesehatan":31
+};
+
+/* ================= JAM ================= */
+
+setInterval(()=>{
+document.getElementById("jam").innerText=new Date().toLocaleString("id-ID");
+},1000);
+
+/* ================= DEVICE ================= */
+
+function deviceID(){
+if(!localStorage.getItem("deviceID")){
+localStorage.setItem("deviceID",Math.random().toString(36).substr(2,10));
+}
+return localStorage.getItem("deviceID");
+}
+
+/* ================= FORM ================= */
+
+const form=document.getElementById("form");
+const tabel=document.getElementById("tabel");
+const rekap=document.getElementById("rekap");
+
+/* ================= ABSEN ================= */
+
+form.addEventListener("submit",function(e){
+e.preventDefault();
+
+/* JAM VALID */
+let jam=new Date().getHours();
+if(jam<6 || jam>=10){
+alert("Absen hanya jam 06:00 - 10:00");
+return;
+}
+
+let nrp=document.getElementById("nrp").value.trim();
+let nama=document.getElementById("nama").value.trim();
+let kompi=document.getElementById("kompi").value;
+let status=document.getElementById("status").value;
+
+let now=new Date();
+let hari=now.toLocaleDateString("id-ID");
+let waktu=now.toLocaleTimeString("id-ID");
+let device=deviceID();
+
+let data=JSON.parse(localStorage.getItem("absen"))||[];
+
+/* ANTI NITIP DEVICE */
+if(data.find(d=>d.device===device && d.hari===hari)){
+alert("❌ Device sudah dipakai hari ini!");
+return;
+}
+
+/* ANTI DUPLIKAT NRP */
+if(data.find(d=>d.nrp===nrp && d.hari===hari)){
+alert("Sudah absen hari ini!");
+return;
+}
+
+data.push({nrp,nama,kompi,status,jam:waktu,hari,device});
+localStorage.setItem("absen",JSON.stringify(data));
+
+document.getElementById("notif").style.display="block";
+setTimeout(()=>document.getElementById("notif").style.display="none",2000);
+
+form.reset();
+tampil();
+
+});
+
+/* ================= TAMPIL ================= */
+
+function tampil(){
+
+tabel.innerHTML="";
+let keyword=document.getElementById("cari").value.toLowerCase();
+let data=JSON.parse(localStorage.getItem("absen"))||[];
+
+let hadir=0,izin=0,sakit=0,dl=0,dd=0;
+
+let kompiData={};
+Object.keys(totalKompi).forEach(k=>kompiData[k]={absen:0});
+
+data.forEach(d=>{
+
+if(!d.nama.toLowerCase().includes(keyword)) return;
+
+if(d.status==="Hadir")hadir++;
+if(d.status==="Izin")izin++;
+if(d.status==="Sakit")sakit++;
+if(d.status==="Dinas Luar")dl++;
+if(d.status==="Dinas Dalam")dd++;
+
+if(kompiData[d.kompi])kompiData[d.kompi].absen++;
+
+let warna={
+"Hadir":"status-hadir",
+"Izin":"status-izin",
+"Sakit":"status-sakit",
+"Dinas Luar":"status-dl",
+"Dinas Dalam":"status-dd"
+}[d.status];
+
+tabel.innerHTML+=`
+<tr>
+<td>${d.nrp}</td>
+<td>${d.nama}</td>
+<td>${d.kompi}</td>
+<td class="${warna}">${d.status}</td>
+<td>${d.jam}</td>
+</tr>`;
+});
+
+rekap.innerHTML=`
+<div class="box">TOTAL<br>${data.length}</div>
+<div class="box">HADIR<br>${hadir}</div>
+<div class="box">IZIN<br>${izin}</div>
+<div class="box">SAKIT<br>${sakit}</div>
+<div class="box">DL<br>${dl}</div>
+<div class="box">DINAS DALAM<br>${dd}</div>
+`;
+
+Object.keys(totalKompi).forEach(k=>{
+let total=totalKompi[k];
+let sudah=kompiData[k].absen;
+let belum=Math.max(total-sudah,0);
+let persen=total?Math.round((sudah/total)*100):0;
+
+rekap.innerHTML+=`
+<div class="box">
+<b>${k}</b><br>
+Total: ${total}<br>
+Absen: ${sudah}<br>
+Belum: ${belum}<br>
+${persen}%
+</div>`;
+});
+}
+
+/* ================= EXPORT REKAP + PASSWORD ================= */
+
+function exportCSV(){
+
+let pass = prompt("Masukkan Password:");
+const PASSWORD = "291226";
+
+if(pass !== PASSWORD){
+alert("❌ Password salah!");
+return;
+}
+
+let data = JSON.parse(localStorage.getItem("absen")) || [];
+
+if(data.length === 0){
+alert("Data kosong!");
+return;
+}
+
+let kompiList = Object.keys(totalKompi);
+
+let hasil = "REKAP ABSEN PERSONEL\n\n";
+
+kompiList.forEach(k=>{
+let hadir=0,izin=0,sakit=0,dl=0,dd=0;
+
+data.forEach(d=>{
+if(d.kompi===k){
+if(d.status==="Hadir")hadir++;
+if(d.status==="Izin")izin++;
+if(d.status==="Sakit")sakit++;
+if(d.status==="Dinas Luar")dl++;
+if(d.status==="Dinas Dalam")dd++;
+}
+});
+
+hasil += `${k}\n`;
+hasil += `Hadir: ${hadir}\n`;
+hasil += `Izin: ${izin}\n`;
+hasil += `Sakit: ${sakit}\n`;
+hasil += `Dinas Luar: ${dl}\n`;
+hasil += `Dinas Dalam: ${dd}\n\n`;
+});
+
+let blob = new Blob([hasil],{type:"text/plain"});
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "REKAP_ABSEN_KOMPI.txt";
+a.click();
+}
+
+/* ================= HAPUS ================= */
+
+const PASSWORD="291226";
+
+function hapus(){
+let pass=prompt("Password:");
+if(pass!==PASSWORD){
+alert("Akses ditolak!");
+return;
+}
+if(confirm("Hapus semua data?")){
+localStorage.removeItem("absen");
+tampil();
+alert("Data dihapus");
+}
+}
+
+tampil();
+
+</script>
+
+</body>
+</html>
